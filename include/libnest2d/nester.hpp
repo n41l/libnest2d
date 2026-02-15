@@ -748,6 +748,28 @@ public:
     void clear() { impl_.clear(); }
 };
 
+template<class P>
+void inflateBin(_Box<P>& box, TCoord<P> amount) {
+    auto mn = box.minCorner();
+    auto mx = box.maxCorner();
+    setX(mn, getX(mn) - amount);
+    setY(mn, getY(mn) - amount);
+    setX(mx, getX(mx) + amount);
+    setY(mx, getY(mx) + amount);
+    box.minCorner() = mn;
+    box.maxCorner() = mx;
+}
+
+template<class P>
+void inflateBin(_Circle<P>& circ, TCoord<P> amount) {
+    circ.radius(circ.radius() + amount);
+}
+
+template<class S>
+void inflateBin(S& shape, TCoord<TPoint<S>> amount) {
+    sl::offset(shape, amount);
+}
+
 /**
  * The _Nester is the front-end class for the libnest2d library. It takes the
  * input items and changes their transformations to be inside the provided bin.
@@ -836,16 +858,22 @@ public:
     inline ItemIteratorOnly<It, size_t> execute(It from, It to)
     {
         auto infl = static_cast<Coord>(std::ceil(min_obj_distance_/2.0));
-        if(infl > 0) std::for_each(from, to, [infl](Item& item) {
-            item.inflate(infl);
-        });
-        
+        if(infl > 0) {
+            std::for_each(from, to, [infl](Item& item) {
+                item.inflate(infl);
+            });
+            inflateBin(bin_, infl);
+        }
+
         selector_.template packItems<PlacementStrategy>(
             from, to, bin_, pconfig_);
-        
-        if(min_obj_distance_ > 0) std::for_each(from, to, [infl](Item& item) {
-            item.inflate(-infl);
-        });
+
+        if(min_obj_distance_ > 0) {
+            std::for_each(from, to, [infl](Item& item) {
+                item.inflate(-infl);
+            });
+            inflateBin(bin_, -infl);
+        }
         
         return selector_.getResult().size();
     }

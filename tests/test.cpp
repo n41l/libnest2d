@@ -1097,3 +1097,39 @@ TEST_CASE("MinAreaBBWithRotatingCalipers", "[Geometry]") {
         REQUIRE(succ);
     }
 }
+
+TEST_CASE("ItemMatchingBinWithObjDistance", "[Nesting]") {
+    // An item whose dimensions match the bin should still be placed
+    // even when min_obj_distance > 0. The bin should be inflated
+    // alongside the items so inflation only affects item-to-item spacing.
+    auto bin = Box(250000000, 210000000);
+
+    std::vector<Item> items;
+    items.emplace_back(RectangleItem{250000000, 210000000});
+
+    // Without distance, item should fit
+    size_t bins = libnest2d::nest(items, bin, 0);
+    REQUIRE(bins == 1u);
+    REQUIRE(items.front().binId() != BIN_ID_UNSET);
+
+    // Reset
+    items.clear();
+    items.emplace_back(RectangleItem{250000000, 210000000});
+
+    // With min_obj_distance > 0, item should still fit (bin gets inflated too)
+    bins = libnest2d::nest(items, bin, 1000000);
+    REQUIRE(bins == 1u);
+    REQUIRE(items.front().binId() != BIN_ID_UNSET);
+
+    // A bin-width item and a smaller item should pack into one bin.
+    // The distance only separates items from each other, not from bin edges.
+    items.clear();
+    items.emplace_back(RectangleItem{250000000, 100000000}); // same width as bin
+    items.emplace_back(RectangleItem{50000000, 50000000});   // small item
+
+    bins = libnest2d::nest(items, bin, 1000000);
+    REQUIRE(bins == 1u);
+    REQUIRE(std::all_of(items.begin(), items.end(), [](const Item &itm) {
+        return itm.binId() != BIN_ID_UNSET;
+    }));
+}
